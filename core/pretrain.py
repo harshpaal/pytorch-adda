@@ -4,10 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 
 import params
-from utils import make_variable, save_model
+from utils import make_variable, save_model, EarlyStopping
 
-# import EarlyStopping
-from pytorchtools import EarlyStopping
 
 def train_src(encoder, classifier, data_loader):
     """Train classifier for source domain."""

@@ -39,7 +39,7 @@ if __name__ == '__main__':
     # loading KimiaNet
     print("=== Loading KimiaNet Encoder and Classifier ===")
     src_encoder, src_classifier = load_kimiaNet(
-        pt_model_path='/content/drive/MyDrive/SRE-2022/kimianet/KimiaNetPyTorchWeights.pth',
+        pt_model_path='./KimiaNetPyTorchWeights.pth',
         input_size=1024,
         num_classes=2)
 
@@ -64,5 +64,3 @@ if __name__ == '__main__':
     # print("=== Evaluating classifier for encoded target domain ===")
     # print(">>> source only <<<")
     # eval_tgt(src_encoder, src_classifier, tgt_data_loader_eval)
-    # print(">>> domain adaption <<<")
-    # eval_tgt(tgt_encoder, src_classifier, tgt_data_loader_eval)
