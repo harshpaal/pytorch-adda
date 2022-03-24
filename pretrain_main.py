@@ -50,14 +50,12 @@ if __name__ == '__main__':
     print(">>> Source Classifier <<<")
     print(src_classifier)
 
-    # if not (src_encoder.restored and src_classifier.restored and
-    #         params.src_model_trained):
-    #     src_encoder, src_classifier = train_src(
-    #         src_encoder, src_classifier, src_data_loader)
+    src_encoder, src_classifier, avg_train_losses, avg_valid_losses, train_accuracies, valid_accuracies= train_src(
+            src_encoder, src_classifier, src_data_loader)
 
-    # # eval source model
-    # print("=== Evaluating classifier for source domain ===")
-    # eval_src(src_encoder, src_classifier, src_data_loader_eval)
+    # eval source model
+    print("=== Evaluating classifier for source domain ===")
+    _, _ = eval_src(src_encoder, src_classifier, src_data_loader_eval)
 
 
     # # eval target encoder on test set of target dataset
