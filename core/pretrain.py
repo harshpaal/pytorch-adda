@@ -2,6 +2,7 @@
 
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 
 import params
 from utils import make_variable, save_model, EarlyStopping
@@ -12,13 +13,15 @@ def train_src(encoder, classifier, data_loader):
     ####################
     # 1. setup network #
     ####################
-    # to track the training loss as the model trains
-    train_losses = []
     # to track the average training loss per epoch as the model trains
     avg_train_losses = []
+    # to track the average validation loss per epoch as the model trains
+    avg_valid_losses = []
 
+    valid_accuracies = []
+    train_accuracies = []
     # initialize the early_stopping object
-    patience = 10
+    patience = 50
     early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     # set train state for Dropout and BN layers
@@ -37,6 +40,12 @@ def train_src(encoder, classifier, data_loader):
     ####################
 
     for epoch in range(params.num_epochs_pre):
+        train_acc = float(0)
+        # to track the training loss as the model trains
+        train_losses = []
+        # to track the validation loss as the model trains
+        valid_losses = []
+
         for step, (images, labels) in enumerate(data_loader):
             # make images and labels variable
             images = make_variable(images)
@@ -51,32 +60,46 @@ def train_src(encoder, classifier, data_loader):
             preds = classifier(features)
             loss = criterion(preds, labels)
 
+            pred_cls = preds.data.max(1)[1]
+            train_acc += pred_cls.eq(labels.data).cpu().sum()
+
             # optimize source classifier
             loss.backward()
             optimizer.step()
 
             train_losses.append(loss.item())
-
+            train_acc /= len(data_loader)
             # print step info
             if ((step + 1) % params.log_step_pre == 0):
-                print("Epoch [{}/{}] Step [{}/{}]: loss={}"
+                print("Epoch [{}/{}] Step [{}/{}]: train_loss={}, train_Acc={}"
                       .format(epoch + 1,
                               params.num_epochs_pre,
                               step + 1,
                               len(data_loader),
-                              loss.data.item()))
+                              loss.data.item(),
+                              train_acc))
 
 
         # eval model on test set
-        if ((epoch + 1) % params.eval_step_pre == 0):
-            valid_loss = eval_src(encoder, classifier, data_loader)
-            early_stopping(valid_loss, encoder)
-            early_stopping(valid_loss, classifier)
-            save_model(encoder, "KimiaNet-ADDA-source-encoder-ES-{}.pt".format(epoch + 1))
-            save_model(
-                classifier, "KimiaNet-ADDA-source-classifier-ES-{}.pt".format(epoch + 1))
+        valid_loss, valid_acc = eval_src(encoder, classifier, data_loader)
+
+        # checking early stopping
+        early_stopping(valid_loss, encoder)
+        early_stopping(valid_loss, classifier)
+
+        # recording train/val accuracies
+        train_accuracies.append(train_acc)
+        valid_accuracies.append(valid_acc)
+
+        # recording train/val losses
+        train_loss = np.average(train_losses)
+        valid_loss = np.average(valid_losses)
+        avg_train_losses.append(train_loss)
+        avg_valid_losses.append(valid_loss)
 
         if early_stopping.early_stop:
+            save_model(encoder, "KimiaNet-ADDA-source-encoder-ES-{}.pt".format(epoch + 1))
+            save_model(classifier, "KimiaNet-ADDA-source-classifier-ES-{}.pt".format(epoch + 1))
             print("Early stopping")
             break
 
@@ -90,13 +113,12 @@ def train_src(encoder, classifier, data_loader):
     save_model(encoder, "KimiaNet-ADDA-source-encoder-final.pt")
     save_model(classifier, "KimiaNet-ADDA-source-classifier-final.pt")
 
-    return encoder, classifier
+    return encoder, classifier, avg_train_losses, avg_valid_losses, train_accuracies, valid_accuracies
 
 
 def eval_src(encoder, classifier, data_loader):
     """Evaluate classifier for source domain."""
     # set eval state for Dropout and BN layers
-
     encoder.eval()
     classifier.eval()
 
@@ -117,9 +139,10 @@ def eval_src(encoder, classifier, data_loader):
 
         pred_cls = preds.data.max(1)[1]
         acc += pred_cls.eq(labels.data).cpu().sum()
+        # record validation loss
 
     loss /= len(data_loader)
     acc /= float(len(data_loader.dataset))
 
-    print("Avg Loss = {}, Avg Accuracy = {:2%}".format(loss, acc))
-    return loss
+    print("val_loss = {}, val_Accuracy = {:2%}".format(loss, acc))
+    return loss, acc
