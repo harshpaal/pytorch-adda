@@ -69,17 +69,17 @@ def get_data_loader(name, train=True):
 
 class fully_connected(nn.Module):
     """docstring for BottleNeck"""
-	def __init__(self, model, num_ftrs, num_classes):
-		super(fully_connected, self).__init__()
-		self.model = model
-		self.fc_4 = nn.Linear(num_ftrs,num_classes)
+    def __init__(self, model, num_ftrs, num_classes):
+        super(fully_connected, self).__init__()
+        self.model = model
+        self.fc_4 = nn.Linear(num_ftrs,num_classes)
 
-	def forward(self, x):
-		x = self.model(x)
-		x = torch.flatten(x, 1)
-		out_1 = x
-		out_3 = self.fc_4(x)
-		return  out_1, out_3
+    def forward(self, x):
+        x = self.model(x)
+        x = torch.flatten(x, 1)
+        out_1 = x
+        out_3 = self.fc_4(x)
+        return  out_1, out_3
 
 #loading KimiaNet
 def load_kimiaNet(pt_model_path, input_size, num_classes):
