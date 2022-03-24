@@ -6,6 +6,8 @@ import torch.optim as optim
 import params
 from utils import make_variable, save_model
 
+# tensorboard settings
+# from IPython import get_ipython
 
 def train_src(encoder, classifier, data_loader):
     """Train classifier for source domain."""
@@ -38,7 +40,9 @@ def train_src(encoder, classifier, data_loader):
             optimizer.zero_grad()
 
             # compute loss for critic
-            preds = classifier(encoder(images))
+            features = encoder(images)
+            features = features.reshape([1, 1024])
+            preds = classifier(features)
             loss = criterion(preds, labels)
 
             # optimize source classifier
@@ -52,7 +56,8 @@ def train_src(encoder, classifier, data_loader):
                               params.num_epochs_pre,
                               step + 1,
                               len(data_loader),
-                              loss.data[0]))
+                              loss.data.item()))
+
 
         # eval model on test set
         if ((epoch + 1) % params.eval_step_pre == 0):
@@ -60,13 +65,13 @@ def train_src(encoder, classifier, data_loader):
 
         # save model parameters
         if ((epoch + 1) % params.save_step_pre == 0):
-            save_model(encoder, "ADDA-source-encoder-{}.pt".format(epoch + 1))
+            save_model(encoder, "KimiaNet-ADDA-source-encoder-{}.pt".format(epoch + 1))
             save_model(
-                classifier, "ADDA-source-classifier-{}.pt".format(epoch + 1))
+                classifier, "KimiaNet-ADDA-source-classifier-{}.pt".format(epoch + 1))
 
     # # save final model
-    save_model(encoder, "ADDA-source-encoder-final.pt")
-    save_model(classifier, "ADDA-source-classifier-final.pt")
+    save_model(encoder, "KimiaNet-ADDA-source-encoder-final.pt")
+    save_model(classifier, "KimiaNet-ADDA-source-classifier-final.pt")
 
     return encoder, classifier
 
@@ -79,7 +84,7 @@ def eval_src(encoder, classifier, data_loader):
 
     # init loss and accuracy
     loss = 0
-    acc = 0
+    acc = float(0)
 
     # set loss function
     criterion = nn.CrossEntropyLoss()
@@ -90,12 +95,12 @@ def eval_src(encoder, classifier, data_loader):
         labels = make_variable(labels)
 
         preds = classifier(encoder(images))
-        loss += criterion(preds, labels).data[0]
+        loss += criterion(preds, labels).data.item()
 
         pred_cls = preds.data.max(1)[1]
         acc += pred_cls.eq(labels.data).cpu().sum()
 
     loss /= len(data_loader)
-    acc /= len(data_loader.dataset)
+    acc /= float(len(data_loader.dataset))
 
     print("Avg Loss = {}, Avg Accuracy = {:2%}".format(loss, acc))

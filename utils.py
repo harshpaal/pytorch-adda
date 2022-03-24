@@ -4,11 +4,15 @@ import os
 import random
 
 import torch
+import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
+import torchvision.models as models
 
 import params
 from datasets import get_mnist, get_usps
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def make_variable(tensor, volatile=False):
@@ -61,6 +65,51 @@ def get_data_loader(name, train=True):
         return get_mnist(train)
     elif name == "USPS":
         return get_usps(train)
+
+
+class fully_connected(nn.Module):
+    """docstring for BottleNeck"""
+	def __init__(self, model, num_ftrs, num_classes):
+		super(fully_connected, self).__init__()
+		self.model = model
+		self.fc_4 = nn.Linear(num_ftrs,num_classes)
+
+	def forward(self, x):
+		x = self.model(x)
+		x = torch.flatten(x, 1)
+		out_1 = x
+		out_3 = self.fc_4(x)
+		return  out_1, out_3
+
+#loading KimiaNet
+def load_kimiaNet(pt_model_path, input_size, num_classes):
+    model = models.densenet121(pretrained=True)
+    for param in model.parameters():
+      param.requires_grad = False
+
+    model.features = nn.Sequential(model.features , nn.AdaptiveAvgPool2d(output_size= (1,1)))
+    num_ftrs = model.classifier.in_features
+    model_final = fully_connected(model.features, num_ftrs, 30)
+    model = model.to(device)
+    model_final = model_final.to(device)
+    model_final = nn.DataParallel(model_final)
+    params_to_update = []
+    criterion = nn.CrossEntropyLoss()
+
+    model_final.load_state_dict(torch.load(pt_model_path,
+                                          map_location=torch.device(device)))
+    model_final.module.fc_4 = nn.Linear(1024, num_classes)
+    print("Params to learn:")
+    params_to_update = []
+    for name,param in model_final.named_parameters():
+        if param.requires_grad == True:
+            params_to_update.append(param)
+            print("\t",name)
+
+    # return encoder, classifier
+    return model_final.module.model, model_final.module.fc_4
+
+
 
 
 def init_model(net, restore):
